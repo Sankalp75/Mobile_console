@@ -62,6 +62,95 @@
     --transition-normal: 150ms ease-out;
 }
 
+/* ─── THEMES ─────────────────────────────────────────────────────── */
+
+/* Cyberpunk / Synthwave */
+body.theme-neon {
+    --bg-primary: #090211;
+    --bg-secondary: #140524;
+    --accent: #f0f;
+    --accent-glow: rgba(255, 0, 255, 0.5);
+    
+    --color-a: #0ff;
+    --color-b: #f0f;
+    --color-x: #0f0;
+    --color-y: #ff0;
+    
+    --color-dpad: rgba(0, 255, 255, 0.05);
+    --color-dpad-border: rgba(0, 255, 255, 0.3);
+    --color-dpad-active: rgba(0, 255, 255, 0.2);
+}
+
+/* SNES Classic */
+body.theme-retro {
+    --bg-primary: #cbd5e1;
+    --bg-secondary: #94a3b8;
+    --bg-surface: rgba(0, 0, 0, 0.1);
+    --accent: #6b21a8;
+    --accent-glow: rgba(107, 33, 168, 0.4);
+    
+    --color-a: #6b21a8;
+    --color-b: #a855f7;
+    --color-x: #a855f7;
+    --color-y: #6b21a8;
+    
+    --text-primary: #1e293b;
+    --text-secondary: #475569;
+    --text-muted: #94a3b8;
+    
+    --color-bumper: rgba(255, 255, 255, 0.5);
+    --color-bumper-border: rgba(0, 0, 0, 0.2);
+    --color-meta: rgba(0, 0, 0, 0.2);
+    --color-meta-border: rgba(0, 0, 0, 0.3);
+    
+    --color-dpad: rgba(0, 0, 0, 0.15);
+    --color-dpad-border: rgba(0, 0, 0, 0.3);
+    --color-dpad-active: rgba(107, 33, 168, 0.3);
+}
+
+/* Minimalist Dark */
+body.theme-stealth {
+    --bg-primary: #000000;
+    --bg-secondary: #0a0a0a;
+    --accent: #ffffff;
+    --accent-glow: rgba(255, 255, 255, 0.2);
+    
+    --color-a: #888;
+    --color-b: #888;
+    --color-x: #888;
+    --color-y: #888;
+    
+    --color-dpad-active: rgba(255, 255, 255, 0.1);
+}
+
+/* ─── THEME SELECTOR UI ──────────────────────────────────────────── */
+
+.theme-selector {
+    display: flex;
+    gap: 12px;
+    margin: 24px 0 32px 0;
+    justify-content: center;
+}
+
+.theme-btn {
+    background: var(--bg-surface);
+    border: 1px solid var(--color-meta-border);
+    color: var(--text-secondary);
+    padding: 10px 20px;
+    border-radius: 30px;
+    font-size: 14px;
+    font-weight: 600;
+    transition: all var(--transition-fast);
+}
+
+.theme-btn.active {
+    background: var(--accent);
+    color: var(--bg-primary); /* Force contrast for solid bg */
+    border-color: var(--accent);
+    box-shadow: 0 0 15px var(--accent-glow);
+    transform: scale(1.05);
+}
+
 
 /* ─── RESET & GLOBAL ─────────────────────────────────────────────── */
 

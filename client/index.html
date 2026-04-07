@@ -18,6 +18,14 @@
             <div class="start-icon">🎮</div>
             <h1>Mobile Console</h1>
             <p>Your phone is the controller</p>
+            
+            <div class="theme-selector">
+                <button class="theme-btn active" data-theme="default">Xbox</button>
+                <button class="theme-btn" data-theme="neon">Neon</button>
+                <button class="theme-btn" data-theme="retro">Retro</button>
+                <button class="theme-btn" data-theme="stealth">Stealth</button>
+            </div>
+
             <button id="start-btn" class="start-button">Tap to Start</button>
         </div>
     </div>
@@ -105,6 +113,7 @@
     </div>
 
     <!-- ─── SCRIPTS ──────────────────────────────────────────────── -->
+    <script src="js/themes.js"></script>
     <script src="js/haptics.js"></script>
     <script src="js/websocket.js"></script>
     <script src="js/joystick.js"></script>
