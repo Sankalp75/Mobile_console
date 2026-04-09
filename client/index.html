@@ -51,91 +51,69 @@
         <span class="status-label">●</span>
     </div>
 
-    <!-- ─── CONTROLLER AREA ──────────────────────────────────────── -->
+    <!-- ─── CONTROLLER AREA (Dynamic - built by Layout engine) ───── -->
     <div id="controller" class="controller hidden">
+    </div>
 
-        <!-- ─── LEFT SIDE ────────────────────────────────────────── -->
-        <div class="controller-left">
-            <!-- Left Analog Stick -->
-            <canvas id="stick-left" class="joystick-canvas" width="180" height="180"></canvas>
-
-            <!-- D-Pad (below the stick) -->
-            <div class="dpad-container">
-                <button class="dpad-btn dpad-up" data-button="10" aria-label="D-Pad Up">
-                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 14l5-5 5 5z"/></svg>
-                </button>
-                <button class="dpad-btn dpad-right" data-button="13" aria-label="D-Pad Right">
-                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 17l5-5-5-5z"/></svg>
-                </button>
-                <button class="dpad-btn dpad-down" data-button="11" aria-label="D-Pad Down">
-                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg>
-                </button>
-                <button class="dpad-btn dpad-left" data-button="12" aria-label="D-Pad Left">
-                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M14 7l-5 5 5 5z"/></svg>
-                </button>
-                <div class="dpad-center"></div>
-            </div>
+    <!-- ─── SETTINGS PANEL ───────────────────────────────────────── -->
+    <div id="settings-panel" class="settings-panel hidden">
+        <div class="settings-header">
+            <h3>Settings</h3>
+            <button id="settings-close">✕</button>
         </div>
-
-        <!-- ─── CENTER ───────────────────────────────────────────── -->
-        <div class="controller-center">
-            <!-- Triggers -->
-            <div class="trigger-row">
-                <div class="trigger-zone lt" id="trigger-lt" aria-label="Left Trigger">
-                    <span class="trigger-label">LT</span>
-                    <div class="trigger-fill" id="lt-fill"></div>
-                </div>
-                <div class="trigger-zone rt" id="trigger-rt" aria-label="Right Trigger">
-                    <span class="trigger-label">RT</span>
-                    <div class="trigger-fill" id="rt-fill"></div>
+        
+        <div class="settings-content">
+            <div class="settings-section">
+                <h4>Actions</h4>
+                <p class="settings-desc">Long-press any button to remap</p>
+            </div>
+            
+            <div class="settings-section">
+                <h4>Add Button</h4>
+                <div class="add-buttons-row">
+                    <button class="add-btn" data-add="button">+ Button</button>
+                    <button class="add-btn" data-add="joystick">+ Stick</button>
                 </div>
             </div>
-
-            <!-- Bumpers -->
-            <div class="bumper-row">
-                <button class="bumper-btn lb" data-button="4" aria-label="Left Bumper">LB</button>
-                <button class="bumper-btn rb" data-button="5" aria-label="Right Bumper">RB</button>
+            
+            <div class="settings-section">
+                <h4>Gyroscope</h4>
+                <label class="toggle-label">
+                    <span>Enable Gyro</span>
+                    <input type="checkbox" id="setting-gyro" checked>
+                </label>
+                <label class="range-label">
+                    <span>Sensitivity</span>
+                    <input type="range" id="setting-gyro-sens" min="0.5" max="3" step="0.1" value="1">
+                </label>
             </div>
-
-            <!-- Meta buttons -->
-            <div class="meta-row">
-                <button class="meta-btn" data-button="6" aria-label="Back">
-                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 11H7.83l4.88-4.88c.39-.39.39-1.03 0-1.42a.996.996 0 00-1.41 0l-6.59 6.59a.996.996 0 000 1.41l6.59 6.59a.996.996 0 101.41-1.41L7.83 13H19c.55 0 1-.45 1-1s-.45-1-1-1z"/></svg>
-                </button>
-                <!-- Gyro Toggle -->
-                <button class="meta-btn gyro-toggle" id="gyro-toggle" aria-label="Gyro Aim">
-                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/></svg>
-                </button>
-                <button class="meta-btn" data-button="7" aria-label="Start">
-                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
-                </button>
+            
+            <div class="settings-section">
+                <h4>Haptics</h4>
+                <label class="toggle-label">
+                    <span>Vibration</span>
+                    <input type="checkbox" id="setting-haptic" checked>
+                </label>
+            </div>
+            
+            <div class="settings-section">
+                <h4>Profiles</h4>
+                <div class="profile-actions">
+                    <button class="profile-btn" id="save-profile">Save</button>
+                    <button class="profile-btn" id="load-profile">Load</button>
+                    <button class="profile-btn" id="reset-profile">Reset</button>
+                </div>
+                <div id="profile-list" class="profile-list"></div>
             </div>
         </div>
-
-        <!-- ─── RIGHT SIDE ───────────────────────────────────────── -->
-        <div class="controller-right">
-            <!-- Face Buttons (A, B, X, Y in Xbox diamond layout) -->
-            <div class="face-buttons">
-                <button class="face-btn btn-y" data-button="3" aria-label="Y Button">Y</button>
-                <button class="face-btn btn-x" data-button="2" aria-label="X Button">X</button>
-                <button class="face-btn btn-b" data-button="1" aria-label="B Button">B</button>
-                <button class="face-btn btn-a" data-button="0" aria-label="A Button">A</button>
-            </div>
-
-            <!-- Right Analog Stick -->
-            <canvas id="stick-right" class="joystick-canvas" width="180" height="180"></canvas>
-        </div>
-
     </div>
 
     <!-- ─── SCRIPTS ──────────────────────────────────────────────── -->
     <script src="js/themes.js"></script>
     <script src="js/haptics.js"></script>
     <script src="js/websocket.js"></script>
-    <script src="js/joystick.js"></script>
-    <script src="js/sensors.js"></script>
     <script src="js/layout.js"></script>
-    <script src="js/touch.js"></script>
+    <script src="js/sensors.js"></script>
     <script src="js/app.js"></script>
 
 </body>
