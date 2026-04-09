@@ -12,6 +12,22 @@
 </head>
 <body>
 
+    <!-- ─── CONNECT CODE SCREEN ─────────────────────────────────── -->
+    <div id="connect-screen" class="connect-screen">
+        <div class="connect-content">
+            <div class="connect-icon">📱</div>
+            <h2>Connect to PC</h2>
+            <p>Enter the 6-digit code shown on your computer</p>
+            
+            <div class="code-input-container">
+                <input type="text" id="connect-code" maxlength="6" placeholder="000000" inputmode="numeric" pattern="[0-9]*">
+            </div>
+            
+            <button id="connect-btn" class="connect-button">Connect</button>
+            <p id="connect-error" class="connect-error"></p>
+        </div>
+    </div>
+
     <!-- ─── START OVERLAY ────────────────────────────────────────── -->
     <div id="start-overlay">
         <div class="start-content">

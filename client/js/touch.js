@@ -18,44 +18,23 @@
 const Touch = (() => {
     const MSG_BUTTON = 0x01;
 
-    // Track which buttons are currently held by which finger
-    // Map: touchIdentifier → button element
     const activeFingers = new Map();
 
-    /**
-     * Initialize touch handling on all buttons.
-     * Call this once after the DOM is ready.
-     */
     function init() {
-        // Find ALL elements with a data-button attribute
         const buttons = document.querySelectorAll('[data-button]');
 
         buttons.forEach(btn => {
-            // Touch start — finger lands on a button
             btn.addEventListener('touchstart', handleTouchStart, { passive: false });
-
-            // Touch end — finger lifts off
             btn.addEventListener('touchend', handleTouchEnd, { passive: false });
             btn.addEventListener('touchcancel', handleTouchEnd, { passive: false });
-
-            // Prevent context menu (long press)
             btn.addEventListener('contextmenu', e => e.preventDefault());
         });
 
-        // Global touchmove prevention — stops scrolling while touching buttons
-        document.addEventListener('touchmove', e => {
-            // Only prevent if touching a button
-            if (e.target.closest('[data-button]')) {
-                e.preventDefault();
-            }
-        }, { passive: false });
+        document.addEventListener('touchmove', handleTouchMove, { passive: false });
 
         console.log(`[Touch] Initialized on ${buttons.length} buttons.`);
     }
 
-    /**
-     * Handle a finger touching down on a button.
-     */
     function handleTouchStart(e) {
         e.preventDefault();
         e.stopPropagation();
@@ -63,44 +42,49 @@ const Touch = (() => {
         const btn = e.currentTarget;
         const buttonId = parseInt(btn.dataset.button, 10);
 
-        // Process each new touch point (supports multi-touch)
         for (const touch of e.changedTouches) {
-            // Track this finger → this button
-            activeFingers.set(touch.identifier, btn);
-
-            // Visual feedback: add "active" class
+            activeFingers.set(touch.identifier, { buttonId, element: btn });
             btn.classList.add('active');
-
-            // Haptic feedback: tiny buzz
             Haptics.tap();
-
-            // Send press to PC: [0x01, buttonId, 1]
             WS.send(MSG_BUTTON, buttonId, 1);
         }
     }
 
-    /**
-     * Handle a finger lifting off a button.
-     */
+    function handleTouchMove(e) {
+        e.preventDefault();
+
+        for (const touch of e.changedTouches) {
+            const tracked = activeFingers.get(touch.identifier);
+            if (!tracked) continue;
+
+            const elemBelow = document.elementFromPoint(touch.clientX, touch.clientY);
+            const btnBelow = elemBelow ? elemBelow.closest('[data-button]') : null;
+
+            if (btnBelow && btnBelow !== tracked.element) {
+                const newButtonId = parseInt(btnBelow.dataset.button, 10);
+                WS.send(MSG_BUTTON, tracked.buttonId, 0);
+                tracked.element.classList.remove('active');
+
+                WS.send(MSG_BUTTON, newButtonId, 1);
+                btnBelow.classList.add('active');
+                Haptics.tap();
+
+                activeFingers.set(touch.identifier, { buttonId: newButtonId, element: btnBelow });
+            }
+        }
+    }
+
     function handleTouchEnd(e) {
         e.preventDefault();
         e.stopPropagation();
 
-        const btn = e.currentTarget;
-        const buttonId = parseInt(btn.dataset.button, 10);
-
         for (const touch of e.changedTouches) {
-            // Clean up tracking
+            const tracked = activeFingers.get(touch.identifier);
+            if (!tracked) continue;
+
             activeFingers.delete(touch.identifier);
-
-            // Only remove active class if NO other finger is on this button
-            const stillHeld = [...activeFingers.values()].some(b => b === btn);
-            if (!stillHeld) {
-                btn.classList.remove('active');
-            }
-
-            // Send release to PC: [0x01, buttonId, 0]
-            WS.send(MSG_BUTTON, buttonId, 0);
+            WS.send(MSG_BUTTON, tracked.buttonId, 0);
+            tracked.element.classList.remove('active');
         }
     }
 

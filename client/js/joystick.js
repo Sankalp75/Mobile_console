@@ -99,6 +99,12 @@ const Joystick = (() => {
 
         sticks.push(stick);
 
+        window.addEventListener('resize', () => {
+            stick.rect = canvas.getBoundingClientRect();
+            stick.centerX = stick.rect.width / 2;
+            stick.centerY = stick.rect.height / 2;
+        });
+
         // Start render loop
         renderLoop(stick);
 
@@ -155,7 +161,7 @@ const Joystick = (() => {
     // ─── POSITION CALCULATION ───────────────────────────────────
 
     function updateThumbPosition(touch, stick) {
-        const rect = stick.canvas.getBoundingClientRect();
+        const rect = stick.rect;
         const touchX = touch.clientX - rect.left;
         const touchY = touch.clientY - rect.top;
 

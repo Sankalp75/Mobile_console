@@ -147,8 +147,93 @@ body.theme-stealth {
     background: var(--accent);
     color: var(--bg-primary); /* Force contrast for solid bg */
     border-color: var(--accent);
-    box-shadow: 0 0 15px var(--accent-glow);
-    transform: scale(1.05);
+}
+
+/* ─── CONNECT SCREEN ─────────────────────────────────────────── */
+
+.connect-screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: var(--bg-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.connect-content {
+    text-align: center;
+    padding: 20px;
+}
+
+.connect-icon {
+    font-size: 64px;
+    margin-bottom: 20px;
+}
+
+.connect-content h2 {
+    color: var(--text-primary);
+    font-size: 24px;
+    margin: 0 0 12px 0;
+}
+
+.connect-content p {
+    color: var(--text-secondary);
+    font-size: 14px;
+    margin: 0 0 24px 0;
+}
+
+.code-input-container {
+    margin-bottom: 20px;
+}
+
+#connect-code {
+    width: 200px;
+    height: 60px;
+    background: var(--bg-surface);
+    border: 2px solid var(--color-meta-border);
+    border-radius: 12px;
+    color: var(--text-primary);
+    font-size: 32px;
+    text-align: center;
+    letter-spacing: 8px;
+    font-weight: bold;
+    outline: none;
+}
+
+#connect-code:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 20px var(--accent-glow);
+}
+
+.connect-button {
+    background: var(--accent);
+    color: var(--bg-primary);
+    border: none;
+    padding: 16px 48px;
+    border-radius: 30px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.connect-button:active {
+    transform: scale(0.95);
+}
+
+.connect-error {
+    color: var(--color-b);
+    font-size: 14px;
+    margin-top: 16px;
+    display: none;
+}
+
+.connect-error.show {
+    display: block;
 }
 
 

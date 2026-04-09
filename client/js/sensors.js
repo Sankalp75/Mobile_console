@@ -179,22 +179,29 @@ const Sensors = (() => {
      */
     function activateGyro() {
         if (!gyroSupported) return;
-        gyroActive = true;
 
-        // Clear smoothing buffers
+        gyroActive = false;
         betaBuffer.length = 0;
         gammaBuffer.length = 0;
 
-        // Capture current orientation as reference ("zero point")
-        // This happens via the next deviceorientation event
         const captureRef = (event) => {
             refBeta = event.beta || 0;
             refGamma = event.gamma || 0;
             window.removeEventListener('deviceorientation', captureRef);
+            gyroActive = true;
+            WS.sendGyroOn();
         };
         window.addEventListener('deviceorientation', captureRef);
 
         console.log('[Sensors] Gyro activated — current position = zero');
+    }
+
+    function deactivateGyro() {
+        gyroActive = false;
+        WS.sendGyroOff();
+        WS.sendStick(MSG_GYRO, 1, 128, 128);
+
+        console.log('[Sensors] Gyro deactivated');
     }
 
     /**

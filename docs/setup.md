@@ -65,7 +65,7 @@ python3 main.py
 
 ### 7. Open on Phone
 1. Open **Chrome** on your phone
-2. Go to: `http://localhost:8080`
+2. Go to: `http://localhost:3000`
 3. Tap **"Tap to Start"** → Controller appears! 🎮
 
 ### 8. Verify

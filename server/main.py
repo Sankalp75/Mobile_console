@@ -17,6 +17,7 @@ import os
 import platform
 import threading
 import json
+import random
 from pathlib import Path
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from functools import partial
@@ -24,8 +25,21 @@ from functools import partial
 import websockets
 
 from config import (
-    PORT, WS_PORT, HOST, ADB_COMMAND, ADB_PORT, ADB_WS_PORT, CLIENT_DIR,
-    MSG_BUTTON, MSG_STICK, MSG_GYRO, BTN_PRESSED, BTN_RELEASED, LOG_INPUTS
+    PORT,
+    WS_PORT,
+    HOST,
+    ADB_COMMAND,
+    ADB_PORT,
+    ADB_WS_PORT,
+    CLIENT_DIR,
+    MSG_BUTTON,
+    MSG_STICK,
+    MSG_GYRO,
+    MSG_GYRO_ON,
+    MSG_GYRO_OFF,
+    BTN_PRESSED,
+    BTN_RELEASED,
+    LOG_INPUTS,
 )
 from gamepad import create_gamepad
 
@@ -45,21 +59,22 @@ BANNER = """
 
 # ─── ADB SETUP ───────────────────────────────────────────────────────
 
+
 def setup_adb():
     """
     Set up the USB tunnel using ADB reverse port forwarding.
-    After this, localhost:8080 on the phone reaches the PC.
+    After this, localhost:3000 on the phone reaches the PC.
     """
     print("🔌 Setting up USB tunnel...")
 
     try:
         result = subprocess.run(
-            [ADB_COMMAND, "devices"],
-            capture_output=True, text=True, timeout=5
+            [ADB_COMMAND, "devices"], capture_output=True, text=True, timeout=5
         )
 
         devices = [
-            line for line in result.stdout.strip().split("\n")[1:]
+            line
+            for line in result.stdout.strip().split("\n")[1:]
             if line.strip() and "device" in line
         ]
 
@@ -78,12 +93,16 @@ def setup_adb():
         # Forward HTTP port
         subprocess.run(
             [ADB_COMMAND, "reverse", f"tcp:{ADB_PORT}", f"tcp:{ADB_PORT}"],
-            capture_output=True, text=True, timeout=5
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
         # Forward WebSocket port
         subprocess.run(
             [ADB_COMMAND, "reverse", f"tcp:{ADB_WS_PORT}", f"tcp:{ADB_WS_PORT}"],
-            capture_output=True, text=True, timeout=5
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
         print(f"   ✓ USB tunnel active: HTTP :{ADB_PORT} + WS :{ADB_WS_PORT}")
         return True
@@ -110,26 +129,67 @@ def setup_adb():
 
 # ─── HTTP SERVER (serves client files) ───────────────────────────────
 
+
 class QuietHTTPHandler(SimpleHTTPRequestHandler):
     """
     Serves static files from the client directory.
     Quiet = no log spam in the terminal for every file request.
     """
+
+    ws_port = None
+    connect_code = None
+
     def log_message(self, format, *args):
-        pass  # Silence — we don't need 200 OK for every CSS file
+        pass
 
     def end_headers(self):
-        # Add CORS and cache headers
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Cache-Control', 'no-cache')
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Cache-Control", "no-cache")
+        if QuietHTTPHandler.ws_port is not None:
+            self.send_header("X-WS-Port", str(QuietHTTPHandler.ws_port))
         super().end_headers()
 
+    def do_GET(self):
+        if self.path == "/api/config":
+            config = {
+                "wsPort": QuietHTTPHandler.ws_port,
+                "connectCode": QuietHTTPHandler.connect_code,
+            }
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps(config).encode())
+            return
+        if self.path.startswith("/api/verify/"):
+            code = self.path.split("/")[-1]
+            if code == QuietHTTPHandler.connect_code:
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+                self.wfile.write(
+                    json.dumps(
+                        {"valid": True, "wsPort": QuietHTTPHandler.ws_port}
+                    ).encode()
+                )
+            else:
+                self.send_response(401)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+                self.wfile.write(json.dumps({"valid": False}).encode())
+            return
+        super().do_GET()
 
-def start_http_server(port, directory):
+
+def start_http_server(port, ws_port, directory):
     """
     Start the HTTP file server in a background thread.
     Serves the client/ directory so the phone can load the controller UI.
     """
+    QuietHTTPHandler.ws_port = ws_port
+    QuietHTTPHandler.connect_code = str(random.randint(100000, 999999))
     handler = partial(QuietHTTPHandler, directory=str(directory))
     httpd = HTTPServer(("0.0.0.0", port), handler)
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
@@ -138,6 +198,7 @@ def start_http_server(port, directory):
 
 
 # ─── WEBSOCKET SERVER (real-time input) ──────────────────────────────
+
 
 class WebSocketServer:
     """
@@ -148,6 +209,7 @@ class WebSocketServer:
     def __init__(self, gamepad):
         self.gamepad = gamepad
         self.connected_clients = set()
+        self._gyro_active = False
 
     async def handler(self, websocket):
         """Called for each new phone connection."""
@@ -172,7 +234,7 @@ class WebSocketServer:
         Parse binary messages from the phone.
 
         Protocol:
-            Byte 0: type  (1=button, 2=stick, 3=gyro)
+            Byte 0: type  (1=button, 2=stick, 3=gyro, 4=gyro_on, 5=gyro_off)
             Byte 1: id    (which button/stick)
             Byte 2: value (pressed/released, or axis position)
             Byte 3: (stick only) second axis value
@@ -197,11 +259,17 @@ class WebSocketServer:
             y_value = data[3]
             if msg_id == 0:
                 self.gamepad.set_left_stick(x_value, y_value)
-            elif msg_id == 1:
+            elif msg_id == 1 and not self._gyro_active:
                 self.gamepad.set_right_stick(x_value, y_value)
 
+        elif msg_type == MSG_GYRO_ON:
+            self._gyro_active = True
+
+        elif msg_type == MSG_GYRO_OFF:
+            self._gyro_active = False
+            self.gamepad.set_right_stick(128, 128)
+
         elif msg_type == MSG_GYRO:
-            # Gyro data → right stick
             if len(data) < 4:
                 return
             x_value = data[2]
@@ -252,8 +320,11 @@ async def main():
         print(f"❌ Client directory not found: {client_dir}")
         sys.exit(1)
 
-    httpd = start_http_server(PORT, client_dir)
+    httpd = start_http_server(PORT, WS_PORT, client_dir)
+    connect_code = QuietHTTPHandler.connect_code
     print(f"🌐 HTTP server running on port {PORT}")
+    print(f"🔐 Connect Code: {connect_code}")
+    print()
 
     # Step 4: Start WebSocket server
     ws_server = WebSocketServer(gamepad)
@@ -262,8 +333,8 @@ async def main():
         ws_server.handler,
         "0.0.0.0",
         WS_PORT,
-        max_size=1024,      # We only send tiny binary messages
-        ping_interval=20,   # Keep-alive pings every 20s
+        max_size=1024,  # We only send tiny binary messages
+        ping_interval=20,  # Keep-alive pings every 20s
         ping_timeout=10,
     ) as server:
         print(f"🔌 WebSocket server running on port {WS_PORT}")

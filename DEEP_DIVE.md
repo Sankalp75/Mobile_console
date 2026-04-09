@@ -116,14 +116,14 @@ Google made ADB for developers to test apps, but we're using it for something co
 
 ### What is Port Forwarding?
 
-Okay, imagine the tunnel has doors on both ends. Each door has a number. Your PC's door might be **door 8080**. Your phone's door is also **door 8080**.
+Okay, imagine the tunnel has doors on both ends. Each door has a number. Your PC's door might be **door 3000**. Your phone's door is also **door 3000**.
 
-**Port forwarding** means: "anything that goes into door 8080 on the PC should come out of door 8080 on the phone, and vice versa."
+**Port forwarding** means: "anything that goes into door 3000 on the PC should come out of door 3000 on the phone, and vice versa."
 
 The magic command:
 
 ```
-adb reverse tcp:8080 tcp:8080
+adb reverse tcp:3000 tcp:3000
 ```
 
 Let's break that down:
@@ -132,10 +132,10 @@ Let's break that down:
 |------|--------------|
 | `adb` | "Hey, translator program!" |
 | `reverse` | "Make traffic go from the PHONE to the PC" |
-| `tcp:8080` | "Use door number 8080" |
-| `tcp:8080` | "On both sides" |
+| `tcp:3000` | "Use door number 3000" |
+| `tcp:3000` | "On both sides" |
 
-After this one command, when your phone's browser goes to `localhost:8080`, it actually reaches your PC through the USB cable. No WiFi. No internet. Just wire.
+After this one command, when your phone's browser goes to `localhost:3000`, it actually reaches your PC through the USB cable. No WiFi. No internet. Just wire.
 
 ### Why USB Beats WiFi
 
@@ -754,7 +754,7 @@ All you see is **your controller**. Maximum screen space. Maximum immersion.
 ```
 Before Fullscreen:                After Fullscreen:
 ┌──────────────────────┐          ┌──────────────────────┐
-│ ◄ 🔒 localhost:8080  │ ← URL   │                      │
+│ ◄ 🔒 localhost:3000  │ ← URL   │                      │
 ├──────────────────────┤          │                      │
 │                      │          │   YOUR CONTROLLER    │
 │   YOUR CONTROLLER    │          │   FILLS THE ENTIRE   │
@@ -1123,7 +1123,7 @@ We use SVG for **button icons** (arrows, gamepad symbols, etc.) because:
 
 ### 🚪 The Door Number
 
-Imagine a huge apartment building (your PC). It has thousands of doors, each with a number: door 80, door 443, door 8080, door 3000...
+Imagine a huge apartment building (your PC). It has thousands of doors, each with a number: door 80, door 443, door 3000, door 8080...
 
 When the phone wants to talk to the PC, it can't just shout at the whole building. It needs to knock on a specific door number. The program behind that door is the one that answers.
 
@@ -1135,13 +1135,13 @@ In computer terms:
 PC (the building):
   Door 80    → usually a regular web server
   Door 443   → usually a secure web server  
-  Door 8080  → OUR controller server is behind this door ← we chose this
+  Door 3000  → OUR controller server is behind this door ← we chose this
   Door 3000  → maybe another app
   ...
   65,535 doors total!
 ```
 
-When the phone's browser goes to `localhost:8080`, it's saying: "Go to this building (localhost = my own PC via USB), and knock on door 8080 (where our controller server lives)."
+When the phone's browser goes to `localhost:3000`, it's saying: "Go to this building (localhost = my own PC via USB), and knock on door 3000 (where our controller server lives)."
 
 ---
 
@@ -1151,15 +1151,15 @@ When the phone's browser goes to `localhost:8080`, it's saying: "Go to this buil
 
 **localhost** is a special address that means "THIS device I'm on right now." It's like looking in a mirror — you're talking to yourself.
 
-When the phone's browser visits `localhost:8080`:
+When the phone's browser visits `localhost:3000`:
 - Normally, "localhost" would mean the phone itself
-- But with ADB port forwarding, `localhost:8080` on the phone is secretly tunneled to the PC's port 8080
+- But with ADB port forwarding, `localhost:3000` on the phone is secretly tunneled to the PC's port 3000
 
 So the phone *thinks* it's talking to itself, but it's actually talking to the PC through the USB tunnel. It's a clever redirect.
 
 ```
 Without ADB:   Phone's localhost ──→ Phone itself (goes nowhere useful)
-With ADB:      Phone's localhost ──→ ═══USB═══ ──→ PC's port 8080 (our server!)
+With ADB:      Phone's localhost ──→ ═══USB═══ ──→ PC's port 3000 (our server!)
 ```
 
 ---

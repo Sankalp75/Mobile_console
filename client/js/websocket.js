@@ -21,6 +21,7 @@ const WS = (() => {
     const MAX_ATTEMPTS = 30;
     let attempts = 0;
     let intentionalClose = false;
+    let wsPort = null;
 
     // Connection states
     const STATE = {
@@ -31,15 +32,31 @@ const WS = (() => {
 
     /**
      * Connect to the WebSocket server on the PC.
-     * WebSocket runs on HTTP_PORT + 1 (e.g., HTTP=8080, WS=8081).
-     * ADB forwards both ports over USB.
+     * First fetches config from server to get correct WS port.
      */
-    function connect() {
+    async function connect() {
         if (socket && socket.readyState === WebSocket.OPEN) return;
+
+        if (wsPort === null) {
+            const stored = localStorage.getItem('wsPort');
+            if (stored) {
+                wsPort = parseInt(stored);
+                console.log(`[WS] Using stored WS port: ${wsPort}`);
+            } else {
+                try {
+                    const resp = await fetch('/api/config');
+                    const config = await resp.json();
+                    wsPort = config.wsPort;
+                    console.log(`[WS] Fetched WS port: ${wsPort}`);
+                } catch (e) {
+                    console.warn('[WS] Failed to fetch config, using fallback');
+                    wsPort = parseInt(location.port || '3000') + 1;
+                }
+            }
+        }
 
         const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
         const hostname = location.hostname || 'localhost';
-        const wsPort = parseInt(location.port || '8080') + 1;
         const url = `${protocol}//${hostname}:${wsPort}`;
 
         console.log(`[WS] Connecting to ${url}...`);
@@ -52,8 +69,9 @@ const WS = (() => {
             socket.onopen = () => {
                 console.log('[WS] ✅ Connected!');
                 updateStatus(STATE.CONNECTED);
-                reconnectDelay = 1000;  // Reset backoff
+                reconnectDelay = 1000;
                 attempts = 0;
+                intentionalClose = false;
             };
 
             socket.onmessage = (event) => {

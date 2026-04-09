@@ -23,9 +23,56 @@ const App = (() => {
     }
 
     function setup() {
+        const connectScreen = document.getElementById('connect-screen');
+        const connectBtn = document.getElementById('connect-btn');
+        const connectCode = document.getElementById('connect-code');
+        const connectError = document.getElementById('connect-error');
         const overlay = document.getElementById('start-overlay');
         const startBtn = document.getElementById('start-btn');
         const controller = document.getElementById('controller');
+
+        connectBtn.addEventListener('click', async () => {
+            const code = connectCode.value.trim();
+            if (code.length !== 6) {
+                connectError.textContent = 'Please enter a 6-digit code';
+                connectError.classList.add('show');
+                return;
+            }
+
+            connectBtn.disabled = true;
+            connectBtn.textContent = 'Connecting...';
+
+            try {
+                const resp = await fetch('/api/verify/' + code);
+                const data = await resp.json();
+
+                if (data.valid) {
+                    localStorage.setItem('wsPort', data.wsPort);
+                    connectError.classList.remove('show');
+                    connectScreen.style.display = 'none';
+                    overlay.classList.remove('hidden');
+                } else {
+                    connectError.textContent = 'Invalid code. Please try again.';
+                    connectError.classList.add('show');
+                    connectBtn.disabled = false;
+                    connectBtn.textContent = 'Connect';
+                }
+            } catch (e) {
+                connectError.textContent = 'Connection failed. Check your network.';
+                connectError.classList.add('show');
+                connectBtn.disabled = false;
+                connectBtn.textContent = 'Connect';
+            }
+        });
+
+        connectCode.addEventListener('input', (e) => {
+            e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6);
+            connectError.classList.remove('show');
+        });
+
+        connectCode.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') connectBtn.click();
+        });
 
         startBtn.addEventListener('click', async () => {
             // ─── Fullscreen ─────────────────────────────────────
@@ -45,15 +92,17 @@ const App = (() => {
             }
 
             // ─── Wake Lock (keep screen on) ─────────────────────
+            let wakeLock = null;
+            let wakeLockWantActive = true;
             try {
                 if ('wakeLock' in navigator) {
-                    await navigator.wakeLock.request('screen');
+                    wakeLock = await navigator.wakeLock.request('screen');
                     console.log('[App] ✅ Wake lock active — screen will stay on');
-                    
+
                     document.addEventListener('visibilitychange', async () => {
-                        if (document.visibilityState === 'visible') {
+                        if (document.visibilityState === 'visible' && wakeLockWantActive) {
                             try {
-                                await navigator.wakeLock.request('screen');
+                                wakeLock = await navigator.wakeLock.request('screen');
                             } catch (e) { /* ignore */ }
                         }
                     });
@@ -176,26 +225,25 @@ const App = (() => {
     }
 
     function setupSingleTrigger(zone, side) {
-        // For Phase 1, triggers act as digital buttons
-        // In Phase 3, we'll add swipe-based analog values
-        const buttonId = side === 'lt' ? 4 : 5;  // LB/RB for now (LT/RT need separate handling in vgamepad)
+        const buttonId = side === 'lt' ? 4 : 5;  // LB/RB
 
         zone.addEventListener('touchstart', (e) => {
             e.preventDefault();
             zone.classList.add('active');
             Haptics.tap();
-            // Send as bumper press for now
-            // Will be replaced with proper trigger analog in Phase 3
+            WS.send(MSG_BUTTON, buttonId, 1);
         }, { passive: false });
 
         zone.addEventListener('touchend', (e) => {
             e.preventDefault();
             zone.classList.remove('active');
+            WS.send(MSG_BUTTON, buttonId, 0);
         }, { passive: false });
 
         zone.addEventListener('touchcancel', (e) => {
             e.preventDefault();
             zone.classList.remove('active');
+            WS.send(MSG_BUTTON, buttonId, 0);
         }, { passive: false });
     }
 
