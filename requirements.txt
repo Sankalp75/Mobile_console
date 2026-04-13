@@ -6,3 +6,6 @@ evdev>=1.6; sys_platform == "linux"
 
 # ─── Windows: virtual gamepad via ViGEmBus ───────────
 vgamepad>=0.3.0; sys_platform == "win32"
+
+# ─── Development ─────────────────────────────────────
+pytest>=7.0.0

@@ -29,11 +29,13 @@ class VirtualGamepad:
 
     # Map our button names to Linux evdev button codes
     # These codes are what Linux uses for Xbox 360 controllers
+    # NOTE: evdev uses directional names (NORTH/EAST/SOUTH/WEST)
+    # which correspond to face buttons: Y/B/A/X respectively
     _EVDEV_BUTTONS = {
-        "A": ecodes.BTN_SOUTH,  # BTN_A
-        "B": ecodes.BTN_EAST,  # BTN_B
-        "X": ecodes.BTN_WEST,  # BTN_X (note: swapped from BTN_NORTH in Xbox mapping)
-        "Y": ecodes.BTN_NORTH,  # BTN_Y
+        "A": ecodes.BTN_SOUTH,  # BTN_A - bottom face button
+        "B": ecodes.BTN_EAST,  # BTN_B - right face button
+        "X": ecodes.BTN_WEST,  # BTN_X - left face button
+        "Y": ecodes.BTN_NORTH,  # BTN_Y - top face button
         "LB": ecodes.BTN_TL,  # Left bumper
         "RB": ecodes.BTN_TR,  # Right bumper
         "BACK": ecodes.BTN_SELECT,  # Back / Select

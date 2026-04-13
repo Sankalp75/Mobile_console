@@ -17,7 +17,7 @@ import os
 import platform
 import threading
 import json
-import random
+import secrets
 from pathlib import Path
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from functools import partial
@@ -28,6 +28,7 @@ from config import (
     PORT,
     WS_PORT,
     HOST,
+    BIND_ADDRESS,
     ADB_COMMAND,
     ADB_PORT,
     ADB_WS_PORT,
@@ -40,6 +41,10 @@ from config import (
     BTN_PRESSED,
     BTN_RELEASED,
     LOG_INPUTS,
+    MAX_BUTTON_ID,
+    MAX_STICK_ID,
+    MIN_AXIS_VALUE,
+    MAX_AXIS_VALUE,
 )
 from gamepad import create_gamepad
 
@@ -69,14 +74,17 @@ def setup_adb():
 
     try:
         result = subprocess.run(
-            [ADB_COMMAND, "devices"], capture_output=True, text=True, timeout=5
+            [ADB_COMMAND, "devices", "-l"], capture_output=True, text=True, timeout=10
         )
 
-        devices = [
-            line
-            for line in result.stdout.strip().split("\n")[1:]
-            if line.strip() and "device" in line
-        ]
+        devices = []
+        for line in result.stdout.strip().split("\n")[1:]:
+            line = line.strip()
+            if not line:
+                continue
+            parts = line.split()
+            if len(parts) >= 2 and parts[1] == "device":
+                devices.append(parts[0])
 
         if not devices:
             print("⚠️  No Android device detected!")
@@ -189,9 +197,11 @@ def start_http_server(port, ws_port, directory):
     Serves the client/ directory so the phone can load the controller UI.
     """
     QuietHTTPHandler.ws_port = ws_port
-    QuietHTTPHandler.connect_code = str(random.randint(100000, 999999))
+    QuietHTTPHandler.connect_code = "".join(
+        secrets.choice("0123456789") for _ in range(6)
+    )
     handler = partial(QuietHTTPHandler, directory=str(directory))
-    httpd = HTTPServer(("0.0.0.0", port), handler)
+    httpd = HTTPServer((BIND_ADDRESS, port), handler)
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
     thread.start()
     return httpd
@@ -246,7 +256,17 @@ class WebSocketServer:
         msg_id = data[1]
         msg_value = data[2]
 
+        # Validate message type
+        if msg_type not in VALID_MSG_TYPES:
+            return
+
         if msg_type == MSG_BUTTON:
+            # Validate button ID
+            if msg_id > MAX_BUTTON_ID:
+                return
+            # Validate button value
+            if msg_value not in (BTN_PRESSED, BTN_RELEASED):
+                return
             if msg_value == BTN_PRESSED:
                 self.gamepad.press_button(msg_id)
             else:
@@ -255,8 +275,14 @@ class WebSocketServer:
         elif msg_type == MSG_STICK:
             if len(data) < 4:
                 return
+            # Validate stick ID
+            if msg_id > MAX_STICK_ID:
+                return
             x_value = data[2]
             y_value = data[3]
+            # Validate axis values
+            x_value = max(MIN_AXIS_VALUE, min(MAX_AXIS_VALUE, x_value))
+            y_value = max(MIN_AXIS_VALUE, min(MAX_AXIS_VALUE, y_value))
             if msg_id == 0:
                 self.gamepad.set_left_stick(x_value, y_value)
             elif msg_id == 1 and not self._gyro_active:
@@ -267,13 +293,13 @@ class WebSocketServer:
 
         elif msg_type == MSG_GYRO_OFF:
             self._gyro_active = False
-            self.gamepad.set_right_stick(128, 128)
+            self.gamepad.set_right_stick(CENTER_AXIS_VALUE, CENTER_AXIS_VALUE)
 
         elif msg_type == MSG_GYRO:
             if len(data) < 4:
                 return
-            x_value = data[2]
-            y_value = data[3]
+            x_value = max(MIN_AXIS_VALUE, min(MAX_AXIS_VALUE, data[2]))
+            y_value = max(MIN_AXIS_VALUE, min(MAX_AXIS_VALUE, data[3]))
             self.gamepad.set_right_stick(x_value, y_value)
 
     async def send_vibration(self, pattern: str):

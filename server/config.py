@@ -7,6 +7,9 @@ All constants and settings live here. One place to change everything.
 PORT = 3000  # HTTP server — serves the controller UI
 WS_PORT = PORT + 1  # WebSocket server — real-time input (8081)
 HOST = "0.0.0.0"  # Listen on all network interfaces
+BIND_ADDRESS = (
+    "127.0.0.1"  # Default bind address for security (use 0.0.0.0 for network access)
+)
 CLIENT_DIR = "client"  # Folder with HTML/CSS/JS files served to phone
 
 # ─── ADB ─────────────────────────────────────────────────────────────
@@ -21,6 +24,9 @@ MSG_STICK = 0x02  # A joystick was moved (Phase 2)
 MSG_GYRO = 0x03  # Gyroscope data (Phase 2)
 MSG_GYRO_ON = 0x04  # Gyroscope aiming activated
 MSG_GYRO_OFF = 0x05  # Gyroscope aiming deactivated
+
+# Valid message types
+VALID_MSG_TYPES = {MSG_BUTTON, MSG_STICK, MSG_GYRO, MSG_GYRO_ON, MSG_GYRO_OFF}
 
 # Button IDs (byte 1) — maps to Xbox 360 controller buttons
 # These numbers match what the phone sends in byte 1
@@ -41,9 +47,20 @@ BUTTON_MAP = {
     13: "DPAD_RIGHT",
 }
 
+# Validation bounds
+MAX_BUTTON_ID = max(BUTTON_MAP.keys())
+MAX_STICK_ID = 1  # Left (0) and right (1) sticks
+MIN_AXIS_VALUE = 0
+MAX_AXIS_VALUE = 255
+CENTER_AXIS_VALUE = 128
+
 # Button values (byte 2)
 BTN_PRESSED = 1
 BTN_RELEASED = 0
+
+# ─── SECURITY ────────────────────────────────────────────────────────
+CONNECT_CODE_LENGTH = 6  # 6-digit code
+MAX_CONNECT_ATTEMPTS = 5  # Max failed attempts before rate limiting
 
 # ─── LOGGING ─────────────────────────────────────────────────────────
 LOG_INPUTS = False  # Set True to print every button press (debug)
