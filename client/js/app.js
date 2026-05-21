@@ -192,9 +192,10 @@ const App = (() => {
         // Profile buttons
         document.getElementById('save-profile')?.addEventListener('click', () => {
             const name = prompt('Profile name:');
-            if (name) {
-                Layout.saveProfile(name);
-                alert('Saved: ' + name);
+            if (name && name.trim()) {
+                const safeName = name.trim().substring(0, 64);
+                Layout.saveProfile(safeName);
+                alert('Saved: ' + safeName);
             }
         });
 
@@ -205,8 +206,8 @@ const App = (() => {
                 return;
             }
             const name = prompt('Profile to load:\n' + profiles.join('\n'));
-            if (name && profiles.includes(name)) {
-                Layout.loadProfile(name);
+            if (name && profiles.includes(name.trim())) {
+                Layout.loadProfile(name.trim());
             }
         });
 

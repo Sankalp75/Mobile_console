@@ -18,6 +18,9 @@ import platform
 import threading
 import json
 import secrets
+import hmac
+import hashlib
+import time
 from pathlib import Path
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from functools import partial
@@ -45,6 +48,7 @@ from config import (
     MAX_STICK_ID,
     MIN_AXIS_VALUE,
     MAX_AXIS_VALUE,
+    MAX_CONNECT_ATTEMPTS,
 )
 from gamepad import create_gamepad
 
@@ -135,24 +139,89 @@ def setup_adb():
         return False
 
 
+ALLOWED_ORIGINS = frozenset({
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    f"http://localhost:{PORT}",
+    f"http://127.0.0.1:{PORT}",
+})
+
+
+class RateLimiter:
+    def __init__(self, max_attempts=MAX_CONNECT_ATTEMPTS, window_seconds=300):
+        self.max_attempts = max_attempts
+        self.window_seconds = window_seconds
+        self._attempts = {}
+
+    def is_allowed(self, client_ip: str) -> bool:
+        now = time.time()
+        if client_ip not in self._attempts:
+            self._attempts[client_ip] = []
+
+        self._attempts[client_ip] = [
+            t for t in self._attempts[client_ip]
+            if now - t < self.window_seconds
+        ]
+
+        if len(self._attempts[client_ip]) >= self.max_attempts:
+            return False
+
+        self._attempts[client_ip].append(now)
+        return True
+
+    def record_failure(self, client_ip: str) -> bool:
+        now = time.time()
+        if client_ip not in self._attempts:
+            self._attempts[client_ip] = []
+
+        self._attempts[client_ip] = [
+            t for t in self._attempts[client_ip]
+            if now - t < self.window_seconds
+        ]
+
+        self._attempts[client_ip].append(now)
+
+        if len(self._attempts[client_ip]) >= self.max_attempts:
+            return False
+        return True
+
+
+def _constant_time_compare(a: str, b: str) -> bool:
+    if len(a) != len(b):
+        return False
+    result = 0
+    for x, y in zip(a, b):
+        result |= ord(x) ^ ord(y)
+    return result == 0
+
+
 # ─── HTTP SERVER (serves client files) ───────────────────────────────
 
 
 class QuietHTTPHandler(SimpleHTTPRequestHandler):
-    """
-    Serves static files from the client directory.
-    Quiet = no log spam in the terminal for every file request.
-    """
-
     ws_port = None
     connect_code = None
+    _rate_limiter = RateLimiter()
 
     def log_message(self, format, *args):
         pass
 
     def end_headers(self):
-        self.send_header("Access-Control-Allow-Origin", "*")
+        origin = self.headers.get("Origin", "")
+        if origin in ALLOWED_ORIGINS:
+            self.send_header("Access-Control-Allow-Origin", origin)
+        elif not origin:
+            self.send_header("Access-Control-Allow-Origin", "null")
         self.send_header("Cache-Control", "no-cache")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("X-Frame-Options", "DENY")
+        self.send_header("Content-Security-Policy",
+            f"default-src 'self'; "
+            f"script-src 'self'; "
+            f"style-src 'self' 'unsafe-inline'; "
+            f"connect-src 'self' ws://localhost:{PORT} ws://127.0.0.1:{PORT} ws://localhost:{WS_PORT} ws://127.0.0.1:{WS_PORT}; "
+            f"img-src 'self' data:; "
+            f"frame-ancestors 'none'")
         if QuietHTTPHandler.ws_port is not None:
             self.send_header("X-WS-Port", str(QuietHTTPHandler.ws_port))
         super().end_headers()
@@ -161,20 +230,35 @@ class QuietHTTPHandler(SimpleHTTPRequestHandler):
         if self.path == "/api/config":
             config = {
                 "wsPort": QuietHTTPHandler.ws_port,
-                "connectCode": QuietHTTPHandler.connect_code,
+                "connectCode": None,
             }
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
-            self.send_header("Access-Control-Allow-Origin", "*")
             self.end_headers()
             self.wfile.write(json.dumps(config).encode())
             return
         if self.path.startswith("/api/verify/"):
             code = self.path.split("/")[-1]
-            if code == QuietHTTPHandler.connect_code:
+            if not code.isdigit() or len(code) != 6:
+                self.send_response(400)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"valid": False, "error": "Invalid code format"}).encode())
+                return
+
+            client_ip = self.client_address[0]
+            if not QuietHTTPHandler._rate_limiter.is_allowed(client_ip):
+                self.send_response(429)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Retry-After", "300")
+                self.end_headers()
+                self.wfile.write(json.dumps({"valid": False, "error": "Too many attempts"}).encode())
+                return
+
+            if _constant_time_compare(code, QuietHTTPHandler.connect_code):
+                QuietHTTPHandler._rate_limiter._attempts.pop(client_ip, None)
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json")
-                self.send_header("Access-Control-Allow-Origin", "*")
                 self.end_headers()
                 self.wfile.write(
                     json.dumps(
@@ -182,9 +266,9 @@ class QuietHTTPHandler(SimpleHTTPRequestHandler):
                     ).encode()
                 )
             else:
+                QuietHTTPHandler._rate_limiter.record_failure(client_ip)
                 self.send_response(401)
                 self.send_header("Content-Type", "application/json")
-                self.send_header("Access-Control-Allow-Origin", "*")
                 self.end_headers()
                 self.wfile.write(json.dumps({"valid": False}).encode())
             return
@@ -211,19 +295,20 @@ def start_http_server(port, ws_port, directory):
 
 
 class WebSocketServer:
-    """
-    Handles real-time WebSocket connections from phones.
-    Parses binary messages and routes them to the virtual gamepad.
-    """
-
     def __init__(self, gamepad):
         self.gamepad = gamepad
         self.connected_clients = set()
         self._gyro_active = False
+        self._lock = threading.Lock()
 
     async def handler(self, websocket):
-        """Called for each new phone connection."""
-        self.connected_clients.add(websocket)
+        origin = websocket.request_headers.get("Origin", "")
+        if origin not in ALLOWED_ORIGINS:
+            await websocket.close(1008, "Forbidden")
+            return
+
+        with self._lock:
+            self.connected_clients.add(websocket)
         client = websocket.remote_address
         print(f"📱 Phone connected! ({client[0]}:{client[1]})")
         print(f"   → {len(self.connected_clients)} client(s) active")
@@ -235,7 +320,8 @@ class WebSocketServer:
         except websockets.exceptions.ConnectionClosed:
             pass
         finally:
-            self.connected_clients.discard(websocket)
+            with self._lock:
+                self.connected_clients.discard(websocket)
             self.gamepad.reset()
             print(f"📱 Phone disconnected. ({len(self.connected_clients)} remaining)")
 
@@ -306,12 +392,16 @@ class WebSocketServer:
         """Send a vibration command to all connected phones."""
         message = json.dumps({"type": "vibrate", "pattern": pattern})
         disconnected = set()
-        for ws in self.connected_clients:
+        with self._lock:
+            clients = list(self.connected_clients)
+        for ws in clients:
             try:
                 await ws.send(message)
             except Exception:
-                disconnected.add(ws)
-        self.connected_clients -= disconnected
+                with self._lock:
+                    disconnected.add(ws)
+        with self._lock:
+            self.connected_clients -= disconnected
 
 
 # ─── MAIN ────────────────────────────────────────────────────────────
@@ -357,7 +447,7 @@ async def main():
 
     async with websockets.serve(
         ws_server.handler,
-        "0.0.0.0",
+        BIND_ADDRESS,
         WS_PORT,
         max_size=1024,  # We only send tiny binary messages
         ping_interval=20,  # Keep-alive pings every 20s

@@ -386,12 +386,42 @@ const Layout = (() => {
     function importProfile(json) {
         try {
             const layout = JSON.parse(json);
-            if (layout.buttons && layout.styles) {
-                currentLayout = layout;
-                saveLayout();
-                applyLayout();
-                return true;
+            if (!layout.buttons || !layout.styles) return false;
+
+            const validTypes = new Set(['button', 'joystick']);
+            const validActions = new Set(Object.keys(ACTIONS));
+            const sanitized = {
+                version: layout.version || 2,
+                buttons: [],
+                styles: typeof layout.styles === 'object' ? layout.styles : {},
+                settings: (layout.settings && typeof layout.settings === 'object') ? layout.settings : {}
+            };
+
+            for (const btn of layout.buttons) {
+                if (!btn || typeof btn !== 'object') continue;
+                if (typeof btn.id !== 'string' || !btn.id) continue;
+                if (btn.action && !validActions.has(btn.action)) continue;
+                if (btn.type && !validTypes.has(btn.type)) continue;
+
+                sanitized.buttons.push({
+                    id: btn.id,
+                    type: btn.type || 'button',
+                    action: btn.action || 'A',
+                    x: typeof btn.x === 'number' ? Math.max(0, Math.min(100, btn.x)) : 50,
+                    y: typeof btn.y === 'number' ? Math.max(0, Math.min(100, btn.y)) : 50,
+                    w: typeof btn.w === 'number' ? Math.max(20, Math.min(200, btn.w)) : 50,
+                    h: typeof btn.h === 'number' ? Math.max(20, Math.min(200, btn.h)) : 50,
+                    label: typeof btn.label === 'string' ? btn.label.slice(0, 10) : '',
+                    style: btn.style === 'circle' ? 'circle' : 'rect',
+                    bg: typeof btn.bg === 'string' ? btn.bg : null,
+                    deadZone: typeof btn.deadZone === 'number' ? Math.max(0, Math.min(1, btn.deadZone)) : undefined
+                });
             }
+
+            currentLayout = sanitized;
+            saveLayout();
+            applyLayout();
+            return true;
         } catch (e) {}
         return false;
     }

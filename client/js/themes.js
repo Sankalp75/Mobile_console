@@ -1,76 +1,55 @@
-/**
- * Mobile Console — Theme Engine
- * Apply amazing color palettes instantly by swapping CSS root variables via classes.
- */
-
 const Themes = (() => {
-    // List of available themes
-    const THEMES = ['default', 'neon', 'retro', 'stealth'];
-    let currentTheme = 'default';
+    const themes = {
+        default: {
+            name: 'Xbox',
+            accent: '#6366f1',
+            colors: {
+                a: '#22c55e',
+                b: '#ef4444',
+                x: '#3b82f6',
+                y: '#eab308',
+            },
+        },
+        neon: {
+            name: 'Neon',
+            accent: '#f0f',
+            colors: {
+                a: '#0ff',
+                b: '#f0f',
+                x: '#0f0',
+                y: '#ff0',
+            },
+        },
+        retro: {
+            name: 'Retro',
+            accent: '#6b21a8',
+            colors: {
+                a: '#6b21a8',
+                b: '#a855f7',
+                x: '#a855f7',
+                y: '#6b21a8',
+            },
+        },
+        stealth: {
+            name: 'Stealth',
+            accent: '#ffffff',
+            colors: {
+                a: '#888888',
+                b: '#888888',
+                x: '#888888',
+                y: '#888888',
+            },
+        },
+    };
 
-    /**
-     * Initialize theme engine, load saved theme if any.
-     */
-    function init() {
-        const saved = localStorage.getItem('mc_theme');
-        if (saved && THEMES.includes(saved)) {
-            setTheme(saved);
-        } else {
-            setTheme('default');
-        }
-
-        // Setup theme selector on start screen
-        const buttons = document.querySelectorAll('.theme-btn');
-        buttons.forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const theme = e.currentTarget.dataset.theme;
-                setTheme(theme);
-                
-                // Update UI active state
-                buttons.forEach(b => b.classList.remove('active'));
-                e.currentTarget.classList.add('active');
-                
-                Haptics.tap();
-            });
-        });
-
-        // Highlight the initial active button
-        const activeBtn = document.querySelector(`.theme-btn[data-theme="${currentTheme}"]`);
-        if (activeBtn) activeBtn.classList.add('active');
-
-        console.log('[Themes] ✅ Engine initialized');
+    function apply(themeName) {
+        const theme = themes[themeName] || themes.default;
+        document.body.className = 'theme-' + themeName;
     }
 
-    /**
-     * Switch to a new theme.
-     * @param {string} themeName 
-     */
-    function setTheme(themeName) {
-        if (!THEMES.includes(themeName)) return;
-
-        // Remove old theme class
-        document.body.classList.remove(`theme-${currentTheme}`);
-        
-        // Add new theme class (except for default)
-        if (themeName !== 'default') {
-            document.body.classList.add(`theme-${themeName}`);
-        }
-
-        currentTheme = themeName;
-        localStorage.setItem('mc_theme', themeName);
-        console.log(`[Themes] Switched to ${themeName}`);
+    function getAll() {
+        return themes;
     }
 
-    function getTheme() {
-        return currentTheme;
-    }
-
-    return { init, setTheme, getTheme };
+    return { apply, getAll };
 })();
-
-// Wait for DOM to init
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', Themes.init);
-} else {
-    Themes.init();
-}

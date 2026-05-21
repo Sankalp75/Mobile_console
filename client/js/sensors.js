@@ -198,6 +198,7 @@ const Sensors = (() => {
 
     function deactivateGyro() {
         gyroActive = false;
+
         WS.sendGyroOff();
         WS.sendStick(MSG_GYRO, 1, 128, 128);
 

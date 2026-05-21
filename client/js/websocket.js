@@ -75,12 +75,14 @@ const WS = (() => {
             };
 
             socket.onmessage = (event) => {
-                // Messages FROM the server (vibration commands, etc.)
                 if (typeof event.data === 'string') {
                     try {
                         const msg = JSON.parse(event.data);
-                        if (msg.type === 'vibrate') {
-                            Haptics.play(msg.pattern);
+                        if (msg && msg.type === 'vibrate' && typeof msg.pattern === 'string') {
+                            const safePatterns = { tap: 1, snap: 1, thud: 1, rumble: 1, burst: 1, heartbeat: 1 };
+                            if (msg.pattern in safePatterns) {
+                                Haptics.play(msg.pattern);
+                            }
                         }
                     } catch (e) {
                         console.warn('[WS] Invalid server message:', e);
@@ -150,6 +152,24 @@ const WS = (() => {
         socket.send(buffer);
     }
 
+    function sendGyroOn() {
+        if (!socket || socket.readyState !== WebSocket.OPEN) return;
+        const buffer = new ArrayBuffer(2);
+        const view = new Uint8Array(buffer);
+        view[0] = 0x04;
+        view[1] = 0;
+        socket.send(buffer);
+    }
+
+    function sendGyroOff() {
+        if (!socket || socket.readyState !== WebSocket.OPEN) return;
+        const buffer = new ArrayBuffer(2);
+        const view = new Uint8Array(buffer);
+        view[0] = 0x05;
+        view[1] = 0;
+        socket.send(buffer);
+    }
+
     /**
      * Schedule a reconnection attempt with exponential backoff.
      * Waits longer each time: 1s → 2s → 4s → 8s → 10s (cap).
@@ -201,5 +221,5 @@ const WS = (() => {
         return socket && socket.readyState === WebSocket.OPEN;
     }
 
-    return { connect, send, sendStick, disconnect, isConnected };
+    return { connect, send, sendStick, sendGyroOn, sendGyroOff, disconnect, isConnected };
 })();
