@@ -62,5 +62,8 @@ BTN_RELEASED = 0
 CONNECT_CODE_LENGTH = 6  # 6-digit code
 MAX_CONNECT_ATTEMPTS = 5  # Max failed attempts before rate limiting
 
+# Profile limits
+MAX_BUTTONS_IN_PROFILE = 50  # Limit buttons to prevent memory exhaustion
+
 # ─── LOGGING ─────────────────────────────────────────────────────────
 LOG_INPUTS = False  # Set True to print every button press (debug)

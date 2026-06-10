@@ -6,6 +6,8 @@ Validates JSON profile files to prevent crashes from corrupted data.
 import json
 from pathlib import Path
 
+from config import MAX_BUTTONS_IN_PROFILE
+
 REQUIRED_BUTTON_FIELDS = {"id", "type", "mapping", "x", "y", "size"}
 VALID_BUTTON_TYPES = {"tap", "hold", "toggle"}
 VALID_SHAPES = {"circle", "rounded", "square"}
@@ -112,6 +114,8 @@ def validate_profile(profile: dict) -> None:
 
     if not isinstance(profile["buttons"], list):
         errors.append("'buttons' must be an array")
+    elif len(profile["buttons"]) > MAX_BUTTONS_IN_PROFILE:
+        errors.append(f"'buttons' exceeds maximum of {MAX_BUTTONS_IN_PROFILE} buttons")
     else:
         for i, button in enumerate(profile["buttons"]):
             if not isinstance(button, dict):

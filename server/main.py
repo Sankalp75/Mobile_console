@@ -21,6 +21,7 @@ import secrets
 import hmac
 import hashlib
 import time
+import fcntl
 from pathlib import Path
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from functools import partial
@@ -49,6 +50,7 @@ from config import (
     MIN_AXIS_VALUE,
     MAX_AXIS_VALUE,
     MAX_CONNECT_ATTEMPTS,
+    MAX_BUTTONS_IN_PROFILE,
 )
 from gamepad import create_gamepad
 
@@ -147,11 +149,43 @@ ALLOWED_ORIGINS = frozenset({
 })
 
 
-class RateLimiter:
+class PersistentRateLimiter:
+    """Rate limiter with file-based persistence to survive server restarts."""
+    
     def __init__(self, max_attempts=MAX_CONNECT_ATTEMPTS, window_seconds=300):
         self.max_attempts = max_attempts
         self.window_seconds = window_seconds
         self._attempts = {}
+        self._state_file = Path.home() / ".mobile_console" / "rate_limit.json"
+        self._load_state()
+
+    def _load_state(self):
+        """Load rate limit state from file."""
+        try:
+            self._state_file.parent.mkdir(parents=True, exist_ok=True)
+            if self._state_file.exists():
+                with open(self._state_file, 'r') as f:
+                    data = json.load(f)
+                    now = time.time()
+                    # Filter out old entries
+                    self._attempts = {
+                        ip: [t for t in attempts if now - t < self.window_seconds]
+                        for ip, attempts in data.get('attempts', {}).items()
+                    }
+        except (json.JSONDecodeError, IOError, OSError):
+            self._attempts = {}
+
+    def _save_state(self):
+        """Save rate limit state to file."""
+        try:
+            self._state_file.parent.mkdir(parents=True, exist_ok=True)
+            # Use atomic write with temp file
+            tmp_file = self._state_file.with_suffix('.tmp')
+            with open(tmp_file, 'w') as f:
+                json.dump({'attempts': self._attempts}, f)
+            tmp_file.replace(self._state_file)
+        except (IOError, OSError):
+            pass  # Best effort - don't crash if we can't write
 
     def is_allowed(self, client_ip: str) -> bool:
         now = time.time()
@@ -167,6 +201,7 @@ class RateLimiter:
             return False
 
         self._attempts[client_ip].append(now)
+        self._save_state()
         return True
 
     def record_failure(self, client_ip: str) -> bool:
@@ -180,10 +215,16 @@ class RateLimiter:
         ]
 
         self._attempts[client_ip].append(now)
+        self._save_state()
 
         if len(self._attempts[client_ip]) >= self.max_attempts:
             return False
         return True
+
+    def clear(self, client_ip: str):
+        """Clear rate limit state for a client (after successful auth)."""
+        self._attempts.pop(client_ip, None)
+        self._save_state()
 
 
 def _constant_time_compare(a: str, b: str) -> bool:
@@ -201,7 +242,8 @@ def _constant_time_compare(a: str, b: str) -> bool:
 class QuietHTTPHandler(SimpleHTTPRequestHandler):
     ws_port = None
     connect_code = None
-    _rate_limiter = RateLimiter()
+    _rate_limiter = PersistentRateLimiter()
+    _verified_clients = set()  # Track clients that have verified the connect code
 
     def log_message(self, format, *args):
         pass
@@ -227,6 +269,15 @@ class QuietHTTPHandler(SimpleHTTPRequestHandler):
         super().end_headers()
 
     def do_GET(self):
+        # Check origin for all requests - reject unauthorized origins
+        origin = self.headers.get("Origin", "")
+        if origin and origin not in ALLOWED_ORIGINS:
+            self.send_response(403)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"error": "Forbidden"}).encode())
+            return
+
         if self.path == "/api/config":
             config = {
                 "wsPort": QuietHTTPHandler.ws_port,
@@ -256,7 +307,8 @@ class QuietHTTPHandler(SimpleHTTPRequestHandler):
                 return
 
             if _constant_time_compare(code, QuietHTTPHandler.connect_code):
-                QuietHTTPHandler._rate_limiter._attempts.pop(client_ip, None)
+                QuietHTTPHandler._rate_limiter.clear(client_ip)
+                QuietHTTPHandler._verified_clients.add(client_ip)
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
@@ -307,6 +359,12 @@ class WebSocketServer:
             await websocket.close(1008, "Forbidden")
             return
 
+        # Enforce connect code verification
+        client_ip = websocket.remote_address[0]
+        if client_ip not in QuietHTTPHandler._verified_clients:
+            await websocket.close(1008, "Connect code not verified")
+            return
+
         with self._lock:
             self.connected_clients.add(websocket)
         client = websocket.remote_address
@@ -338,19 +396,20 @@ class WebSocketServer:
         if len(data) < 3:
             return
 
+        # Explicitly validate byte ranges (defense in depth)
         msg_type = data[0]
         msg_id = data[1]
         msg_value = data[2]
 
-        # Validate message type
+        # Validate message type - must be one of the defined constants
         if msg_type not in VALID_MSG_TYPES:
             return
 
         if msg_type == MSG_BUTTON:
-            # Validate button ID
+            # Validate button ID is within valid range
             if msg_id > MAX_BUTTON_ID:
                 return
-            # Validate button value
+            # Validate button value is exactly pressed or released
             if msg_value not in (BTN_PRESSED, BTN_RELEASED):
                 return
             if msg_value == BTN_PRESSED:
@@ -361,12 +420,16 @@ class WebSocketServer:
         elif msg_type == MSG_STICK:
             if len(data) < 4:
                 return
-            # Validate stick ID
+            # Validate stick ID is within valid range
             if msg_id > MAX_STICK_ID:
                 return
+            # Validate axis values are within bounds
             x_value = data[2]
             y_value = data[3]
-            # Validate axis values
+            if not (MIN_AXIS_VALUE <= x_value <= MAX_AXIS_VALUE):
+                return
+            if not (MIN_AXIS_VALUE <= y_value <= MAX_AXIS_VALUE):
+                return
             x_value = max(MIN_AXIS_VALUE, min(MAX_AXIS_VALUE, x_value))
             y_value = max(MIN_AXIS_VALUE, min(MAX_AXIS_VALUE, y_value))
             if msg_id == 0:
@@ -384,8 +447,15 @@ class WebSocketServer:
         elif msg_type == MSG_GYRO:
             if len(data) < 4:
                 return
-            x_value = max(MIN_AXIS_VALUE, min(MAX_AXIS_VALUE, data[2]))
-            y_value = max(MIN_AXIS_VALUE, min(MAX_AXIS_VALUE, data[3]))
+            # Validate axis values are within bounds
+            x_value = data[2]
+            y_value = data[3]
+            if not (MIN_AXIS_VALUE <= x_value <= MAX_AXIS_VALUE):
+                return
+            if not (MIN_AXIS_VALUE <= y_value <= MAX_AXIS_VALUE):
+                return
+            x_value = max(MIN_AXIS_VALUE, min(MAX_AXIS_VALUE, x_value))
+            y_value = max(MIN_AXIS_VALUE, min(MAX_AXIS_VALUE, y_value))
             self.gamepad.set_right_stick(x_value, y_value)
 
     async def send_vibration(self, pattern: str):

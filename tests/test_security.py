@@ -26,7 +26,7 @@ from profile_validator import (
 )
 from main import (
     _constant_time_compare,
-    RateLimiter,
+    PersistentRateLimiter,
     ALLOWED_ORIGINS,
 )
 
@@ -46,24 +46,32 @@ class TestConstantTimeCompare:
         assert _constant_time_compare("", "") is True
 
 
-class TestRateLimiter:
+class TestPersistentRateLimiter:
     def test_first_attempt_allowed(self):
-        r = RateLimiter(max_attempts=5, window_seconds=300)
+        r = PersistentRateLimiter(max_attempts=5, window_seconds=300)
+        r._state_file = r._state_file.with_suffix('.test1.json')
+        r._attempts = {}  # Clear any loaded state
         assert r.is_allowed("127.0.0.1") is True
 
     def test_respects_max_attempts(self):
-        r = RateLimiter(max_attempts=3, window_seconds=300)
+        r = PersistentRateLimiter(max_attempts=3, window_seconds=300)
+        r._state_file = r._state_file.with_suffix('.test2.json')
+        r._attempts = {}  # Clear any loaded state
         for _ in range(3):
             assert r.is_allowed("127.0.0.1") is True
 
     def test_blocks_after_max_attempts(self):
-        r = RateLimiter(max_attempts=3, window_seconds=300)
+        r = PersistentRateLimiter(max_attempts=3, window_seconds=300)
+        r._state_file = r._state_file.with_suffix('.test3.json')
+        r._attempts = {}  # Clear any loaded state
         for _ in range(3):
             r.is_allowed("127.0.0.1")
         assert r.is_allowed("127.0.0.1") is False
 
     def test_different_ips_independent(self):
-        r = RateLimiter(max_attempts=2, window_seconds=300)
+        r = PersistentRateLimiter(max_attempts=2, window_seconds=300)
+        r._state_file = r._state_file.with_suffix('.test4.json')
+        r._attempts = {}  # Clear any loaded state
         r.is_allowed("127.0.0.1")
         r.is_allowed("127.0.0.1")
         assert r.is_allowed("127.0.0.1") is False
@@ -241,3 +249,27 @@ class TestBinaryProtocol:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+class TestButtonLimit:
+    def test_button_limit_enforced(self):
+        from config import MAX_BUTTONS_IN_PROFILE
+        # Create a profile with too many buttons
+        buttons = [
+            {"id": f"btn_{i}", "type": "tap", "mapping": i % 14, "x": 50, "y": 50, "size": 50}
+            for i in range(MAX_BUTTONS_IN_PROFILE + 1)
+        ]
+        profile = {"name": "Test", "buttons": buttons}
+        with pytest.raises(ProfileValidationError, match="exceeds maximum"):
+            validate_profile(profile)
+
+    def test_button_limit_edge_case(self):
+        from config import MAX_BUTTONS_IN_PROFILE
+        # Create a profile at exactly the limit
+        buttons = [
+            {"id": f"btn_{i}", "type": "tap", "mapping": i % 14, "x": 50, "y": 50, "size": 50}
+            for i in range(MAX_BUTTONS_IN_PROFILE)
+        ]
+        profile = {"name": "Test", "buttons": buttons}
+        # Should not raise
+        validate_profile(profile)
