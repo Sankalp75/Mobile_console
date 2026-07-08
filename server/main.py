@@ -354,7 +354,7 @@ class WebSocketServer:
         self._lock = threading.Lock()
 
     async def handler(self, websocket):
-        origin = websocket.request_headers.get("Origin", "")
+        origin = websocket.request.headers.get("Origin", "")
         if origin not in ALLOWED_ORIGINS:
             await websocket.close(1008, "Forbidden")
             return
@@ -474,7 +474,7 @@ class WebSocketServer:
             self.connected_clients -= disconnected
 
 
-# ─── MAIN ────────────────────────────────────────────────────────────
+# ─── MAIN ───────────────────────────────────────────────────────────
 
 
 async def main():
