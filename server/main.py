@@ -51,6 +51,8 @@ from config import (
     MAX_AXIS_VALUE,
     MAX_CONNECT_ATTEMPTS,
     MAX_BUTTONS_IN_PROFILE,
+    CENTER_AXIS_VALUE,
+    VALID_MSG_TYPES,
 )
 from gamepad import create_gamepad
 
