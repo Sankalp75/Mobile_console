@@ -155,6 +155,148 @@ const App = (() => {
         }
     }
 
+    /**
+     * Show a secure modal dialog for text input
+     * @param {string} title - Dialog title
+     * @param {string} placeholder - Input placeholder
+     * @param {string} initialValue - Initial input value (optional)
+     * @returns {Promise<string|null>} - User input or null if cancelled
+     */
+    function showInputDialog(title, placeholder, initialValue = '') {
+        return new Promise((resolve) => {
+            // Create modal elements
+            const modal = document.createElement('div');
+            modal.className = 'input-dialog-modal';
+            modal.setAttribute('role', 'dialog');
+            modal.setAttribute('aria-modal', 'true');
+            modal.setAttribute('aria-labelledby', 'dialog-title');
+
+            const overlay = document.createElement('div');
+            overlay.className = 'input-dialog-overlay';
+
+            const dialog = document.createElement('div');
+            dialog.className = 'input-dialog';
+
+            const titleEl = document.createElement('h2');
+            titleEl.id = 'dialog-title';
+            titleEl.textContent = title;
+
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'input-dialog-input';
+            input.placeholder = placeholder;
+            input.value = initialValue;
+            input.maxLength = '64'; // Prevent extremely long inputs
+
+            const buttonContainer = document.createElement('div');
+            buttonContainer.className = 'input-dialog-buttons';
+
+            const cancelBtn = document.createElement('button');
+            cancelBtn.textContent = 'Cancel';
+            cancelBtn.className = 'input-dialog-btn cancel-btn';
+
+            const okBtn = document.createElement('button');
+            okBtn.textContent = 'OK';
+            okBtn.className = 'input-dialog-btn ok-btn';
+
+            // Event handlers
+            function closeDialog(value) {
+                modal.remove();
+                resolve(value);
+            }
+
+            okBtn.addEventListener('click', () => {
+                closeDialog(input.value.trim());
+            });
+
+            cancelBtn.addEventListener('click', () => {
+                closeDialog(null);
+            });
+
+            input.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    closeDialog(input.value.trim());
+                }
+                if (e.key === 'Escape') {
+                    closeDialog(null);
+                }
+            });
+
+            // Assemble dialog
+            buttonContainer.appendChild(cancelBtn);
+            buttonContainer.appendChild(okBtn);
+
+            dialog.appendChild(titleEl);
+            dialog.appendChild(input);
+            dialog.appendChild(buttonContainer);
+
+            modal.appendChild(overlay);
+            modal.appendChild(dialog);
+            document.body.appendChild(modal);
+
+            // Focus input
+            input.focus();
+        });
+    }
+
+    /**
+     * Show a secure modal dialog for confirmation
+     * @param {string} message - Confirmation message
+     * @returns {Promise<boolean>} - User choice
+     */
+    function showConfirmDialog(message) {
+        return new Promise((resolve) => {
+            const modal = document.createElement('div');
+            modal.className = 'input-dialog-modal';
+            modal.setAttribute('role', 'dialog');
+            modal.setAttribute('aria-modal', 'true');
+
+            const overlay = document.createElement('div');
+            overlay.className = 'input-dialog-overlay';
+
+            const dialog = document.createElement('div');
+            dialog.className = 'input-dialog';
+
+            const messageEl = document.createElement('p');
+            messageEl.textContent = message;
+            messageEl.style.marginBottom = '1.5rem';
+
+            const buttonContainer = document.createElement('div');
+            buttonContainer.className = 'input-dialog-buttons';
+
+            const noBtn = document.createElement('button');
+            noBtn.textContent = 'No';
+            noBtn.className = 'input-dialog-btn cancel-btn';
+
+            const yesBtn = document.createElement('button');
+            yesBtn.textContent = 'Yes';
+            yesBtn.className = 'input-dialog-btn ok-btn';
+
+            function closeDialog(result) {
+                modal.remove();
+                resolve(result);
+            }
+
+            yesBtn.addEventListener('click', () => {
+                closeDialog(true);
+            });
+
+            noBtn.addEventListener('click', () => {
+                closeDialog(false);
+            });
+
+            buttonContainer.appendChild(noBtn);
+            buttonContainer.appendChild(yesBtn);
+
+            dialog.appendChild(messageEl);
+            dialog.appendChild(buttonContainer);
+
+            modal.appendChild(overlay);
+            modal.appendChild(dialog);
+            document.body.appendChild(modal);
+        });
+    }
+
     function setupSettingsPanel() {
         const panel = document.getElementById('settings-panel');
         const closeBtn = document.getElementById('settings-close');
@@ -190,29 +332,66 @@ const App = (() => {
         }
 
         // Profile buttons
-        document.getElementById('save-profile')?.addEventListener('click', () => {
-            const name = prompt('Profile name:');
+        document.getElementById('save-profile')?.addEventListener('click', async () => {
+            const name = await showInputDialog('Save Profile', 'Enter profile name:');
             if (name && name.trim()) {
                 const safeName = name.trim().substring(0, 64);
                 Layout.saveProfile(safeName);
-                alert('Saved: ' + safeName);
+                // Show success message with modal instead of alert
+                const modal = document.createElement('div');
+                modal.className = 'input-dialog-modal';
+                const overlay = document.createElement('div');
+                overlay.className = 'input-dialog-overlay';
+                const dialog = document.createElement('div');
+                dialog.className = 'input-dialog';
+                const msg = document.createElement('p');
+                msg.textContent = 'Saved: ' + safeName;
+                msg.style.marginBottom = '1.5rem';
+                const btn = document.createElement('button');
+                btn.textContent = 'OK';
+                btn.className = 'input-dialog-btn ok-btn';
+                btn.addEventListener('click', () => modal.remove());
+                dialog.appendChild(msg);
+                dialog.appendChild(btn);
+                modal.appendChild(overlay);
+                modal.appendChild(dialog);
+                document.body.appendChild(modal);
             }
         });
 
-        document.getElementById('load-profile')?.addEventListener('click', () => {
+        document.getElementById('load-profile')?.addEventListener('click', async () => {
             const profiles = Layout.getProfileList();
             if (profiles.length === 0) {
-                alert('No saved profiles');
+                // Show alert with modal
+                const modal = document.createElement('div');
+                modal.className = 'input-dialog-modal';
+                const overlay = document.createElement('div');
+                overlay.className = 'input-dialog-overlay';
+                const dialog = document.createElement('div');
+                dialog.className = 'input-dialog';
+                const msg = document.createElement('p');
+                msg.textContent = 'No saved profiles';
+                msg.style.marginBottom = '1.5rem';
+                const btn = document.createElement('button');
+                btn.textContent = 'OK';
+                btn.className = 'input-dialog-btn ok-btn';
+                btn.addEventListener('click', () => modal.remove());
+                dialog.appendChild(msg);
+                dialog.appendChild(btn);
+                modal.appendChild(overlay);
+                modal.appendChild(dialog);
+                document.body.appendChild(modal);
                 return;
             }
-            const name = prompt('Profile to load:\n' + profiles.join('\n'));
+            const name = await showInputDialog('Load Profile', 'Select profile:', profiles[0]);
             if (name && profiles.includes(name.trim())) {
                 Layout.loadProfile(name.trim());
             }
         });
 
-        document.getElementById('reset-profile')?.addEventListener('click', () => {
-            if (confirm('Reset to default layout?')) {
+        document.getElementById('reset-profile')?.addEventListener('click', async () => {
+            const confirmed = await showConfirmDialog('Reset to default layout?');
+            if (confirmed) {
                 Layout.resetLayout();
             }
         });
