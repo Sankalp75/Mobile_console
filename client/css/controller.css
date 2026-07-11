@@ -938,3 +938,118 @@ button {
     color: rgba(255,255,255,0.5);
     font-size: 12px;
 }
+
+/* ─── INPUT DIALOG MODAL ──────────────────────────────────────────── */
+
+.input-dialog-modal {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 3000;
+    animation: fadeIn 0.2s ease-out;
+}
+
+.input-dialog-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+}
+
+.input-dialog {
+    position: relative;
+    background: var(--bg-secondary);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--border-radius-lg);
+    padding: 24px;
+    max-width: 90%;
+    width: 100%;
+    max-width: 320px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+    animation: slideUp 0.3s ease-out;
+}
+
+.input-dialog h2 {
+    color: var(--text-primary);
+    font-size: 18px;
+    margin: 0 0 16px 0;
+    font-weight: 600;
+}
+
+.input-dialog p {
+    color: var(--text-secondary);
+    font-size: 14px;
+    line-height: 1.5;
+    margin: 0;
+}
+
+.input-dialog-input {
+    width: 100%;
+    padding: 12px;
+    margin: 16px 0;
+    background: var(--bg-surface);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--border-radius-sm);
+    color: var(--text-primary);
+    font-size: 16px;
+    outline: none;
+    transition: border-color var(--transition-fast);
+    font-family: inherit;
+}
+
+.input-dialog-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 12px var(--accent-glow);
+}
+
+.input-dialog-buttons {
+    display: flex;
+    gap: 12px;
+    margin-top: 20px;
+    justify-content: flex-end;
+}
+
+.input-dialog-btn {
+    padding: 10px 20px;
+    border-radius: var(--border-radius-sm);
+    font-size: 14px;
+    font-weight: 600;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+.input-dialog-btn.cancel-btn {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.1);
+    color: var(--text-secondary);
+}
+
+.input-dialog-btn.cancel-btn:active {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.input-dialog-btn.ok-btn {
+    background: var(--accent);
+    color: var(--bg-primary);
+}
+
+.input-dialog-btn.ok-btn:active {
+    transform: scale(0.95);
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
