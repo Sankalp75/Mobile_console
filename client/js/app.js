@@ -297,6 +297,44 @@ const App = (() => {
         });
     }
 
+    /**
+     * Show a secure modal alert dialog
+     * @param {string} message - Alert message
+     * @returns {Promise<void>}
+     */
+    function showAlertDialog(message) {
+        return new Promise((resolve) => {
+            const modal = document.createElement('div');
+            modal.className = 'input-dialog-modal';
+            modal.setAttribute('role', 'dialog');
+            modal.setAttribute('aria-modal', 'true');
+
+            const overlay = document.createElement('div');
+            overlay.className = 'input-dialog-overlay';
+
+            const dialog = document.createElement('div');
+            dialog.className = 'input-dialog';
+
+            const messageEl = document.createElement('p');
+            messageEl.textContent = message;
+            messageEl.style.marginBottom = '1.5rem';
+
+            const btn = document.createElement('button');
+            btn.textContent = 'OK';
+            btn.className = 'input-dialog-btn ok-btn';
+            btn.addEventListener('click', () => {
+                modal.remove();
+                resolve();
+            });
+
+            dialog.appendChild(messageEl);
+            dialog.appendChild(btn);
+            modal.appendChild(overlay);
+            modal.appendChild(dialog);
+            document.body.appendChild(modal);
+        });
+    }
+
     function setupSettingsPanel() {
         const panel = document.getElementById('settings-panel');
         const closeBtn = document.getElementById('settings-close');
@@ -337,50 +375,14 @@ const App = (() => {
             if (name && name.trim()) {
                 const safeName = name.trim().substring(0, 64);
                 Layout.saveProfile(safeName);
-                // Show success message with modal instead of alert
-                const modal = document.createElement('div');
-                modal.className = 'input-dialog-modal';
-                const overlay = document.createElement('div');
-                overlay.className = 'input-dialog-overlay';
-                const dialog = document.createElement('div');
-                dialog.className = 'input-dialog';
-                const msg = document.createElement('p');
-                msg.textContent = 'Saved: ' + safeName;
-                msg.style.marginBottom = '1.5rem';
-                const btn = document.createElement('button');
-                btn.textContent = 'OK';
-                btn.className = 'input-dialog-btn ok-btn';
-                btn.addEventListener('click', () => modal.remove());
-                dialog.appendChild(msg);
-                dialog.appendChild(btn);
-                modal.appendChild(overlay);
-                modal.appendChild(dialog);
-                document.body.appendChild(modal);
+                await showAlertDialog('Saved: ' + safeName);
             }
         });
 
         document.getElementById('load-profile')?.addEventListener('click', async () => {
             const profiles = Layout.getProfileList();
             if (profiles.length === 0) {
-                // Show alert with modal
-                const modal = document.createElement('div');
-                modal.className = 'input-dialog-modal';
-                const overlay = document.createElement('div');
-                overlay.className = 'input-dialog-overlay';
-                const dialog = document.createElement('div');
-                dialog.className = 'input-dialog';
-                const msg = document.createElement('p');
-                msg.textContent = 'No saved profiles';
-                msg.style.marginBottom = '1.5rem';
-                const btn = document.createElement('button');
-                btn.textContent = 'OK';
-                btn.className = 'input-dialog-btn ok-btn';
-                btn.addEventListener('click', () => modal.remove());
-                dialog.appendChild(msg);
-                dialog.appendChild(btn);
-                modal.appendChild(overlay);
-                modal.appendChild(dialog);
-                document.body.appendChild(modal);
+                await showAlertDialog('No saved profiles');
                 return;
             }
             const name = await showInputDialog('Load Profile', 'Select profile:', profiles[0]);
