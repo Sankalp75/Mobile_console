@@ -156,6 +156,20 @@ const App = (() => {
     }
 
     /**
+     * Sanitize a profile name: alphanumeric, spaces, hyphens, underscores, periods only.
+     * Prevents XSS, prototype pollution, and localStorage key corruption.
+     * @param {string} raw
+     * @returns {string|null} sanitized name, or null if empty/invalid
+     */
+    function sanitizeName(raw) {
+        if (typeof raw !== 'string') return null;
+        const trimmed = raw.trim().substring(0, 64);
+        if (!trimmed) return null;
+        const sanitized = trimmed.replace(/[^\w\s.\-]/g, '');
+        return sanitized || null;
+    }
+
+    /**
      * Show a secure modal dialog for text input
      * @param {string} title - Dialog title
      * @param {string} placeholder - Input placeholder
@@ -371,12 +385,15 @@ const App = (() => {
 
         // Profile buttons
         document.getElementById('save-profile')?.addEventListener('click', async () => {
-            const name = await showInputDialog('Save Profile', 'Enter profile name:');
-            if (name && name.trim()) {
-                const safeName = name.trim().substring(0, 64);
-                Layout.saveProfile(safeName);
-                await showAlertDialog('Saved: ' + safeName);
+            const raw = await showInputDialog('Save Profile', 'Enter profile name:');
+            if (raw === null) return;
+            const safeName = sanitizeName(raw);
+            if (!safeName) {
+                await showAlertDialog('Invalid name — use letters, numbers, spaces, hyphens, underscores, or periods.');
+                return;
             }
+            Layout.saveProfile(safeName);
+            await showAlertDialog('Saved: ' + safeName);
         });
 
         document.getElementById('load-profile')?.addEventListener('click', async () => {
@@ -385,10 +402,14 @@ const App = (() => {
                 await showAlertDialog('No saved profiles');
                 return;
             }
-            const name = await showInputDialog('Load Profile', 'Select profile:', profiles[0]);
-            if (name && profiles.includes(name.trim())) {
-                Layout.loadProfile(name.trim());
+            const raw = await showInputDialog('Load Profile', 'Select profile:', profiles[0]);
+            if (raw === null) return;
+            const name = sanitizeName(raw);
+            if (!name || !profiles.includes(name)) {
+                await showAlertDialog('Profile not found.');
+                return;
             }
+            Layout.loadProfile(name);
         });
 
         document.getElementById('reset-profile')?.addEventListener('click', async () => {

@@ -426,16 +426,25 @@ const Layout = (() => {
         return false;
     }
 
+    function sanitizeKey(name) {
+        if (typeof name !== 'string') return null;
+        return name.replace(/[^\w\s.\-]/g, '').substring(0, 64) || null;
+    }
+
     function saveProfile(name) {
+        const key = sanitizeKey(name);
+        if (!key) return;
         const profiles = JSON.parse(localStorage.getItem('mc_profiles') || '{}');
-        profiles[name] = currentLayout;
+        profiles[key] = currentLayout;
         localStorage.setItem('mc_profiles', JSON.stringify(profiles));
     }
 
     function loadProfile(name) {
+        const key = sanitizeKey(name);
+        if (!key) return false;
         const profiles = JSON.parse(localStorage.getItem('mc_profiles') || '{}');
-        if (profiles[name]) {
-            currentLayout = profiles[name];
+        if (key in profiles) {
+            currentLayout = profiles[key];
             saveLayout();
             applyLayout();
             return true;
@@ -444,12 +453,15 @@ const Layout = (() => {
     }
 
     function getProfileList() {
-        return Object.keys(JSON.parse(localStorage.getItem('mc_profiles') || '{}'));
+        return Object.keys(JSON.parse(localStorage.getItem('mc_profiles') || '{}'))
+            .filter(k => k !== '__proto__' && k !== 'constructor' && k !== 'prototype');
     }
 
     function deleteProfile(name) {
+        const key = sanitizeKey(name);
+        if (!key) return;
         const profiles = JSON.parse(localStorage.getItem('mc_profiles') || '{}');
-        delete profiles[name];
+        delete profiles[key];
         localStorage.setItem('mc_profiles', JSON.stringify(profiles));
     }
 
