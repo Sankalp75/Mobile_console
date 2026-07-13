@@ -43,11 +43,21 @@ const App = (() => {
                 return;
             }
 
+            if (connectBtn.disabled) return;
             connectBtn.disabled = true;
             connectBtn.textContent = 'Connecting...';
 
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 10000);
+
             try {
-                const resp = await fetch('/api/verify/' + code);
+                const resp = await fetch('/api/verify/' + code, { signal: controller.signal });
+                clearTimeout(timeout);
+
+                if (!resp.ok) {
+                    throw new Error('Server returned ' + resp.status);
+                }
+
                 const data = await resp.json();
 
                 if (data.valid) {
@@ -61,6 +71,7 @@ const App = (() => {
                     connectBtn.textContent = 'Connect';
                 }
             } catch (e) {
+                clearTimeout(timeout);
                 connectError.textContent = 'Connection failed';
                 connectError.classList.add('show');
                 connectBtn.disabled = false;
