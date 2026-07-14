@@ -397,7 +397,9 @@ const Layout = (() => {
                 settings: (layout.settings && typeof layout.settings === 'object') ? layout.settings : {}
             };
 
+            const MAX_BUTTONS = 50;
             for (const btn of layout.buttons) {
+                if (sanitized.buttons.length >= MAX_BUTTONS) break;
                 if (!btn || typeof btn !== 'object') continue;
                 if (typeof btn.id !== 'string' || !btn.id) continue;
                 if (btn.action && !validActions.has(btn.action)) continue;
@@ -409,8 +411,8 @@ const Layout = (() => {
                     action: btn.action || 'A',
                     x: typeof btn.x === 'number' ? Math.max(0, Math.min(100, btn.x)) : 50,
                     y: typeof btn.y === 'number' ? Math.max(0, Math.min(100, btn.y)) : 50,
-                    w: typeof btn.w === 'number' ? Math.max(20, Math.min(200, btn.w)) : 50,
-                    h: typeof btn.h === 'number' ? Math.max(20, Math.min(200, btn.h)) : 50,
+                    w: typeof btn.w === 'number' ? Math.max(20, Math.min(150, btn.w)) : 50,
+                    h: typeof btn.h === 'number' ? Math.max(20, Math.min(150, btn.h)) : 50,
                     label: typeof btn.label === 'string' ? btn.label.slice(0, 10) : '',
                     style: btn.style === 'circle' ? 'circle' : 'rect',
                     bg: typeof btn.bg === 'string' ? btn.bg : null,
