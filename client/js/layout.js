@@ -107,7 +107,7 @@ const Layout = (() => {
     }
 
     function saveLayout() {
-        localStorage.setItem('mc_layout', JSON.stringify(currentLayout));
+        try { localStorage.setItem('mc_layout', JSON.stringify(currentLayout)); } catch (e) {}
         if (onLayoutChange) onLayoutChange(currentLayout);
     }
 
@@ -438,7 +438,7 @@ const Layout = (() => {
         if (!key) return;
         const profiles = JSON.parse(localStorage.getItem('mc_profiles') || '{}');
         profiles[key] = currentLayout;
-        localStorage.setItem('mc_profiles', JSON.stringify(profiles));
+        try { localStorage.setItem('mc_profiles', JSON.stringify(profiles)); } catch (e) {}
     }
 
     function loadProfile(name) {
@@ -464,7 +464,7 @@ const Layout = (() => {
         if (!key) return;
         const profiles = JSON.parse(localStorage.getItem('mc_profiles') || '{}');
         delete profiles[key];
-        localStorage.setItem('mc_profiles', JSON.stringify(profiles));
+        try { localStorage.setItem('mc_profiles', JSON.stringify(profiles)); } catch (e) {}
     }
 
     function enterEditMode() {
