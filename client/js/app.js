@@ -61,7 +61,7 @@ const App = (() => {
                 const data = await resp.json();
 
                 if (data.valid) {
-                    localStorage.setItem('wsPort', data.wsPort);
+                    try { localStorage.setItem('wsPort', data.wsPort); } catch (e) {}
                     connectScreen.style.display = 'none';
                     overlay.classList.remove('hidden');
                 } else {
