@@ -352,7 +352,9 @@ class WebSocketServer:
     def __init__(self, gamepad):
         self.gamepad = gamepad
         self.connected_clients = set()
-        self._gyro_active = False
+        self._gyro_owner = None
+        self._gyro_last_active = 0.0
+        self._gyro_timeout = 3.0  # seconds
         self._lock = threading.Lock()
 
     async def handler(self, websocket):
@@ -376,16 +378,19 @@ class WebSocketServer:
         try:
             async for message in websocket:
                 if isinstance(message, bytes):
-                    self._process_binary(message)
+                    self._process_binary(message, websocket)
         except websockets.exceptions.ConnectionClosed:
             pass
         finally:
             with self._lock:
                 self.connected_clients.discard(websocket)
+            if self._gyro_owner is websocket:
+                self._gyro_owner = None
+                self.gamepad.set_right_stick(CENTER_AXIS_VALUE, CENTER_AXIS_VALUE)
             self.gamepad.reset()
             print(f"📱 Phone disconnected. ({len(self.connected_clients)} remaining)")
 
-    def _process_binary(self, data: bytes):
+    def _process_binary(self, data: bytes, websocket):
         """
         Parse binary messages from the phone.
 
@@ -397,6 +402,11 @@ class WebSocketServer:
         """
         if len(data) < 3:
             return
+
+        # Check gyro timeout: auto-disable if owner hasn't sent data recently
+        if self._gyro_owner is not None and time.monotonic() - self._gyro_last_active > self._gyro_timeout:
+            self._gyro_owner = None
+            self.gamepad.set_right_stick(CENTER_AXIS_VALUE, CENTER_AXIS_VALUE)
 
         # Explicitly validate byte ranges (defense in depth)
         msg_type = data[0]
@@ -436,17 +446,21 @@ class WebSocketServer:
             y_value = max(MIN_AXIS_VALUE, min(MAX_AXIS_VALUE, y_value))
             if msg_id == 0:
                 self.gamepad.set_left_stick(x_value, y_value)
-            elif msg_id == 1 and not self._gyro_active:
+            elif msg_id == 1 and self._gyro_owner is not websocket:
                 self.gamepad.set_right_stick(x_value, y_value)
 
         elif msg_type == MSG_GYRO_ON:
-            self._gyro_active = True
+            self._gyro_owner = websocket
+            self._gyro_last_active = time.monotonic()
 
         elif msg_type == MSG_GYRO_OFF:
-            self._gyro_active = False
-            self.gamepad.set_right_stick(CENTER_AXIS_VALUE, CENTER_AXIS_VALUE)
+            if self._gyro_owner is websocket:
+                self._gyro_owner = None
+                self.gamepad.set_right_stick(CENTER_AXIS_VALUE, CENTER_AXIS_VALUE)
 
         elif msg_type == MSG_GYRO:
+            if self._gyro_owner is not websocket:
+                return
             if len(data) < 4:
                 return
             # Validate axis values are within bounds
@@ -458,6 +472,7 @@ class WebSocketServer:
                 return
             x_value = max(MIN_AXIS_VALUE, min(MAX_AXIS_VALUE, x_value))
             y_value = max(MIN_AXIS_VALUE, min(MAX_AXIS_VALUE, y_value))
+            self._gyro_last_active = time.monotonic()
             self.gamepad.set_right_stick(x_value, y_value)
 
     async def send_vibration(self, pattern: str):
