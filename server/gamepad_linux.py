@@ -15,10 +15,14 @@ Prerequisites:
   OR add a udev rule (see docs/setup.md)
 """
 
+import logging
+
 import evdev
 from evdev import UInput, ecodes, AbsInfo
 
 from config import BUTTON_MAP, BTN_PRESSED, LOG_INPUTS
+
+logger = logging.getLogger(__name__)
 
 
 class VirtualGamepad:
@@ -156,6 +160,7 @@ class VirtualGamepad:
         """Press a button on the virtual controller."""
         button_name = BUTTON_MAP.get(button_id)
         if button_name is None:
+            logger.warning("Unknown button ID %s — not in BUTTON_MAP", button_id)
             return
 
         # D-Pad buttons are axes on Linux, not buttons
@@ -170,6 +175,10 @@ class VirtualGamepad:
         else:
             evdev_btn = self._EVDEV_BUTTONS.get(button_name)
             if evdev_btn is None:
+                logger.warning(
+                    "No evdev code for button %r — stale entry in BUTTON_MAP",
+                    button_name,
+                )
                 return
             self.device.write(ecodes.EV_KEY, evdev_btn, 1)  # 1 = pressed
             self.device.syn()
@@ -181,6 +190,7 @@ class VirtualGamepad:
         """Release a button on the virtual controller."""
         button_name = BUTTON_MAP.get(button_id)
         if button_name is None:
+            logger.warning("Unknown button ID %s — not in BUTTON_MAP", button_id)
             return
 
         if button_name in self._DPAD_MAP:
@@ -195,6 +205,10 @@ class VirtualGamepad:
         else:
             evdev_btn = self._EVDEV_BUTTONS.get(button_name)
             if evdev_btn is None:
+                logger.warning(
+                    "No evdev code for button %r — stale entry in BUTTON_MAP",
+                    button_name,
+                )
                 return
             self.device.write(ecodes.EV_KEY, evdev_btn, 0)  # 0 = released
             self.device.syn()
