@@ -11,6 +11,7 @@ Architecture:
 """
 
 import asyncio
+import concurrent.futures
 import subprocess
 import sys
 import os
@@ -566,7 +567,12 @@ async def main():
         except asyncio.CancelledError:
             pass
         finally:
-            httpd.shutdown()
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                f = pool.submit(httpd.shutdown)
+                try:
+                    f.result(timeout=5)
+                except concurrent.futures.TimeoutError:
+                    httpd.server_close()
             gamepad.close()
             print("\n👋 Server stopped. See you next time!")
 
