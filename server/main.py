@@ -79,7 +79,7 @@ def setup_adb():
     Set up the USB tunnel using ADB reverse port forwarding.
     After this, localhost:3000 on the phone reaches the PC.
     """
-    print("🔌 Setting up USB tunnel...")
+    print("Setting up USB tunnel...")
 
     try:
         result = subprocess.run(
@@ -87,11 +87,11 @@ def setup_adb():
         )
 
         devices = []
-        for line in result.stdout.strip().split("\n")[1:]:
+        for line in result.stdout.splitlines():
             line = line.strip()
-            if not line:
+            if not line or line.startswith("List of devices") or line.startswith("* "):
                 continue
-            parts = line.split()
+            parts = line.split(None, 2)
             if len(parts) >= 2 and parts[1] == "device":
                 devices.append(parts[0])
 
